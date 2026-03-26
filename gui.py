@@ -40,6 +40,8 @@ class App(tk.Tk):
         self.minsize(640, 520)
 
         self._recording = False
+        self._transcribing = False
+        self._transcribe_start: float = 0.0
         self._record_thread: threading.Thread | None = None
         self._audio_data = None
         self._record_start: float = 0.0
@@ -259,8 +261,17 @@ class App(tk.Tk):
     def _run_in_thread(self, fn) -> None:
         self._progress.start(10)
         self._set_status("准备中，首次运行需下载模型（约1.5GB），请耐心等待...", "blue")
+        self._transcribe_start = time.time()
+        self._transcribing = True
+        self._tick_timer()
         t = threading.Thread(target=fn, daemon=True)
         t.start()
+
+    def _tick_timer(self) -> None:
+        if self._transcribing:
+            elapsed = int(time.time() - self._transcribe_start)
+            self._set_status(f"转录中... 已用时 {elapsed}s，请耐心等待", "blue")
+            self.after(1000, self._tick_timer)
 
     def _do_transcribe(self, audio_path: str) -> None:
         try:
@@ -268,20 +279,25 @@ class App(tk.Tk):
             model = self._get_model()
             lang = self._get_lang()
             self._set_status("模型加载中...", "blue")
-            start = time.time()
+            self._transcribe_start = time.time()
+            self._transcribing = True
             result = mlx_whisper.transcribe(
                 audio_path,
                 path_or_hf_repo=model,
                 language=lang,
                 verbose=False,
             )
-            elapsed = time.time() - start
+            self._transcribing = False
+            elapsed = time.time() - self._transcribe_start
             text = result["text"].strip()
             detected = result.get("language", "未知")
             self.after(0, lambda: self._show_result(text, elapsed, detected))
         except Exception as e:
-            self.after(0, lambda: self._set_status(f"错误: {e}", "red"))
+            self._transcribing = False
+            err = str(e)
+            self.after(0, lambda: self._set_status(f"错误: {err}", "red"))
         finally:
+            self._transcribing = False
             self.after(0, self._progress.stop)
 
     def _show_result(self, text: str, elapsed: float, detected: str) -> None:
