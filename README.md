@@ -83,11 +83,14 @@ python3.12 -m venv .venv
 ## 打包为 macOS 应用
 
 ```bash
-.venv/bin/pip install py2app
-.venv/bin/python3 setup.py py2app
+bash build_app.sh
 ```
 
-生成的应用在 `dist/语音转文字.app`，可直接拖入 Applications 文件夹。
+生成的应用在 `dist/语音转文字.app`，可直接双击启动或拖入 Applications 文件夹：
+
+```bash
+cp -r "dist/语音转文字.app" /Applications/
+```
 
 ## 模型说明
 
