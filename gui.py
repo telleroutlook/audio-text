@@ -111,10 +111,9 @@ class App(tk.Tk):
         file_frame.pack(fill="x", padx=12, pady=4)
 
         self._file_var = tk.StringVar(value="")
-        ttk.Entry(file_frame, textvariable=self._file_var, width=44).pack(
-            side="left", fill="x", expand=True)
+        ttk.Entry(file_frame, textvariable=self._file_var, width=38).pack(side="left")
         ttk.Button(file_frame, text="选择文件", command=self._pick_file).pack(side="left", padx=(6, 0))
-        ttk.Button(file_frame, text="Voice Memos", command=self._open_voice_memos).pack(side="left", padx=(6, 0))
+        ttk.Button(file_frame, text="打开 Voice Memos", command=self._open_voice_memos).pack(side="left", padx=(6, 0))
         ttk.Button(file_frame, text="开始转录", command=self._start_file_transcribe).pack(side="left", padx=(6, 0))
 
         # Voice Memos 使用提示
@@ -126,11 +125,6 @@ class App(tk.Tk):
         # ── 录音区 ──────────────────────────────────
         rec_frame = ttk.LabelFrame(self, text="麦克风录音", padding=10)
         rec_frame.pack(fill="x", padx=12, pady=4)
-
-        ttk.Label(rec_frame, text="时长(秒):").pack(side="left")
-        self._duration_var = tk.IntVar(value=30)
-        ttk.Spinbox(rec_frame, from_=5, to=300, textvariable=self._duration_var, width=6).pack(
-            side="left", padx=(4, 16))
 
         self._rec_btn = ttk.Button(rec_frame, text="开始录音", command=self._toggle_record)
         self._rec_btn.pack(side="left")
@@ -206,7 +200,10 @@ class App(tk.Tk):
             self._file_var.set(path)
 
     def _open_voice_memos(self) -> None:
-        threading.Thread(target=lambda: os.system("open -a 'Voice Memos'"), daemon=True).start()
+        threading.Thread(
+            target=lambda: os.system('osascript -e \'tell application "Voice Memos" to activate\''),
+            daemon=True,
+        ).start()
 
     def _start_file_transcribe(self) -> None:
         path = self._file_var.get().strip()
@@ -250,7 +247,6 @@ class App(tk.Tk):
         import numpy as np
 
         SAMPLE_RATE = 16000
-        duration = self._duration_var.get()
         self._set_status("录音中...", "red")
 
         chunks = []
@@ -261,8 +257,7 @@ class App(tk.Tk):
 
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
                             blocksize=block_size, callback=callback):
-            start_time = time.time()
-            while self._recording and (time.time() - start_time) < duration:
+            while self._recording:
                 time.sleep(0.1)
 
         self._recording = False
