@@ -411,7 +411,11 @@ class App(tk.Tk):
         if not Path(path).exists():
             self._set_status("文件不存在", "error")
             return
-        self._run_in_thread(lambda: self._do_transcribe(path))
+        model = self._get_model()
+        lang = self._get_lang()
+        prompt, use_builtin = self._get_prompt()
+        show_ts = self._timestamps_var.get()
+        self._run_in_thread(lambda: self._do_transcribe(path, model, lang, prompt, use_builtin, show_ts))
 
     # ── 转录 ──────────────────────────────────────────────────
 
@@ -430,11 +434,9 @@ class App(tk.Tk):
             self._set_status(f"转录中  {m:02d}:{s:02d}", "info")
             self.after(1000, self._tick_timer)
 
-    def _do_transcribe(self, audio_path: str) -> None:
+    def _do_transcribe(self, audio_path: str, model: str, lang: str | None,
+                        prompt: str | None, use_builtin: bool, show_ts: bool) -> None:
         try:
-            model  = self._get_model()
-            lang   = self._get_lang()
-            prompt, use_builtin = self._get_prompt()
             self._transcribe_start = time.time()
             self._transcribing = True
 
@@ -444,7 +446,7 @@ class App(tk.Tk):
             elapsed  = time.time() - self._transcribe_start
             segments = filter_segments(result.get("segments", []))
             self._last_segments = segments
-            text     = format_segments(segments, show_timestamps=self._timestamps_var.get())
+            text     = format_segments(segments, show_timestamps=show_ts)
             detected = result.get("language", "未知")
             self.after(0, lambda: self._show_result(text, elapsed, detected, len(segments)))
         except Exception as e:
