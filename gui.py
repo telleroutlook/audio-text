@@ -17,7 +17,7 @@ from transcribe import (
     DEFAULT_MODEL, do_transcribe, filter_segments,
     format_segments, format_srt, format_vtt,
 )
-from domain_prompts import PRESET_PROMPTS
+from domain_prompts import build_prompt
 
 MODELS = [
     ("large-v3-turbo (推荐，中文最佳)", "mlx-community/whisper-large-v3-turbo"),
@@ -89,25 +89,22 @@ class App(tk.Tk):
         ttk.Checkbutton(cfg, text="显示时间戳", variable=self._timestamps_var).grid(
             row=1, column=2, sticky="w", padx=(16, 0), pady=(8, 0))
 
-        # 提示词预设 + 自定义输入
-        ttk.Label(cfg, text="提示词:").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        # 内置词汇 + 自定义输入
+        ttk.Label(cfg, text="内置词汇:").grid(row=2, column=0, sticky="w", pady=(8, 0))
 
         prompt_frame = ttk.Frame(cfg)
         prompt_frame.grid(row=2, column=1, columnspan=2, sticky="w", padx=(8, 0), pady=(8, 0))
 
-        self._preset_var = tk.StringVar(value="无")
-        self._preset_labels = [p[0] for p in PRESET_PROMPTS]
-        self._preset_values = [p[1] for p in PRESET_PROMPTS]
-        preset_cb = ttk.Combobox(prompt_frame, textvariable=self._preset_var,
-                                  width=18, state="readonly")
-        preset_cb["values"] = self._preset_labels
-        preset_cb.current(0)
-        preset_cb.pack(side="left")
-        preset_cb.bind("<<ComboboxSelected>>", self._on_preset_select)
+        self._builtin_var = tk.StringVar(value="数字化")
+        builtin_cb = ttk.Combobox(prompt_frame, textvariable=self._builtin_var,
+                                  width=12, state="readonly")
+        builtin_cb["values"] = ["数字化", "无"]
+        builtin_cb.current(0)
+        builtin_cb.pack(side="left")
 
-        ttk.Label(prompt_frame, text="或自定义:").pack(side="left", padx=(8, 4))
+        ttk.Label(prompt_frame, text="自定义:").pack(side="left", padx=(12, 4))
         self._prompt_var = tk.StringVar(value="")
-        ttk.Entry(prompt_frame, textvariable=self._prompt_var, width=24).pack(side="left")
+        ttk.Entry(prompt_frame, textvariable=self._prompt_var, width=28).pack(side="left")
 
         # ── 文件转录区 ──────────────────────────────
         file_frame = ttk.LabelFrame(self, text="文件转录", padding=10)
@@ -165,15 +162,10 @@ class App(tk.Tk):
         idx = self._model_labels.index(label)
         self._model_var.set(self._model_ids[idx])
 
-    def _on_preset_select(self, _event: tk.Event) -> None:
-        label = self._preset_var.get()
-        idx = self._preset_labels.index(label)
-        preset_text = self._preset_values[idx]
-        self._prompt_var.set(preset_text)
-
-    def _get_prompt(self) -> str | None:
-        text = self._prompt_var.get().strip()
-        return text or None
+    def _get_prompt(self) -> tuple[str | None, bool]:
+        use_builtin = self._builtin_var.get() == "数字化"
+        custom = self._prompt_var.get().strip()
+        return (custom or None, use_builtin)
 
     def _get_model(self) -> str:
         val = self._model_var.get()
@@ -194,8 +186,11 @@ class App(tk.Tk):
             return None
 
     def _pick_file(self) -> None:
+        voice_memos = Path.home() / "Library/Group Containers/group.com.apple.VoiceMemos.shared/Media/Recordings"
+        init_dir = str(voice_memos) if voice_memos.exists() else str(Path.home())
         path = filedialog.askopenfilename(
             title="选择音频/视频文件",
+            initialdir=init_dir,
             filetypes=[
                 ("音频/视频文件", "*.mp3 *.m4a *.wav *.ogg *.flac *.mp4 *.mov *.mkv *.aac"),
                 ("所有文件", "*.*"),
@@ -309,13 +304,13 @@ class App(tk.Tk):
         try:
             model = self._get_model()
             lang = self._get_lang()
-            prompt = self._get_prompt()
+            prompt, use_builtin = self._get_prompt()
 
             self._set_status("模型加载中...", "blue")
             self._transcribe_start = time.time()
             self._transcribing = True
 
-            result = do_transcribe(audio_path, model, lang, prompt)
+            result = do_transcribe(audio_path, model, lang, prompt, use_builtin)
 
             self._transcribing = False
             elapsed = time.time() - self._transcribe_start

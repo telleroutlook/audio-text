@@ -98,10 +98,16 @@ def _vtt_ts(seconds: float) -> str:
 
 
 def do_transcribe(audio_path: str, model: str, language: str | None,
-                  initial_prompt: str | None = None) -> dict:
+                  initial_prompt: str | None = None,
+                  use_builtin_vocab: bool = True) -> dict:
     """核心转录函数，返回 mlx_whisper 结果"""
     import mlx_whisper
     from domain_prompts import build_prompt
+
+    if use_builtin_vocab:
+        prompt = build_prompt(initial_prompt)
+    else:
+        prompt = initial_prompt
 
     return mlx_whisper.transcribe(
         audio_path,
@@ -111,7 +117,7 @@ def do_transcribe(audio_path: str, model: str, language: str | None,
         condition_on_previous_text=False,
         word_timestamps=True,
         hallucination_silence_threshold=1.0,
-        initial_prompt=build_prompt(initial_prompt),
+        initial_prompt=prompt,
         compression_ratio_threshold=2.4,
         logprob_threshold=-1.0,
         no_speech_threshold=0.6,

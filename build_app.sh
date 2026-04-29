@@ -88,6 +88,11 @@ exec "\${PROJECT_DIR}/.venv/bin/python3" "\${PROJECT_DIR}/gui.py" "\$@"
 EOF
 chmod +x "${MACOS}/launch"
 
+# 复制图标
+if [ -f "${PROJECT_DIR}/AppIcon.icns" ]; then
+    cp "${PROJECT_DIR}/AppIcon.icns" "${RESOURCES}/AppIcon.icns"
+fi
+
 echo "✓ ${APP_DIR} 构建完成"
 echo ""
 echo "安装方法："
