@@ -8,9 +8,6 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 import threading
 import time
-import os
-import tempfile
-import wave
 from pathlib import Path
 
 from transcribe import (
@@ -140,11 +137,8 @@ class App(tk.Tk):
         self.minsize(780, 600)
         _apply_style(self)
 
-        self._recording      = False
         self._transcribing   = False
         self._transcribe_start: float = 0.0
-        self._record_thread: threading.Thread | None = None
-        self._record_start:  float = 0.0
         self._last_segments: list[dict] = []
         self._progress_active = False
         self._progress_pos    = 0.0
@@ -287,30 +281,22 @@ class App(tk.Tk):
                    bg=PANEL2, fg=TEXT, hover_bg=BORDER,
                    padx=10, pady=4, font_size=11).pack(side="left", padx=(6, 0))
 
-        FlatButton(p4, "开始转录  →", self._start_file_transcribe,
+        FlatButton(p4, "开始转文字  →", self._start_file_transcribe,
                    padx=0, pady=8, font_size=11).pack(fill="x")
 
-        # 卡片 3：麦克风录音
+        # Voice Memos 提示卡片
         c3 = tk.Frame(parent, bg=PANEL)
         c3.pack(fill="x", pady=(0, 8))
         p5 = tk.Frame(c3, bg=PANEL)
         p5.pack(fill="x", padx=14, pady=12)
 
-        self._lbl(p5, "麦克风录音", size=11, color=TEXT3).pack(anchor="w", pady=(0, 6))
-        self._rec_btn = FlatButton(p5, "● 开始录音", self._toggle_record,
-                                   bg=DANGER, hover_bg="#FF6961",
-                                   padx=0, pady=8, font_size=11)
-        self._rec_btn.pack(fill="x")
-
-        self._rec_label = tk.Label(p5, text="", bg=PANEL, fg=DANGER,
-                                   font=("PingFang SC", 11))
-        self._rec_label.pack(pady=(6, 0))
-
+        self._lbl(p5, "如何转录 Voice Memos 录音", size=11, color=TEXT3).pack(anchor="w", pady=(0, 6))
         self._lbl(p5,
-                  "提示：Voice Memos 录音请在备忘录 App\n"
-                  "长按录音 → 共享 → 存储到「下载」\n"
-                  "再点「浏览」选择文件转录",
-                  size=11, color=TEXT3).pack(anchor="w", pady=(8, 0))
+                  "① 打开「备忘录」App\n"
+                  "② 长按录音 → 共享\n"
+                  "③ 存储到「下载」文件夹\n"
+                  "④ 点「浏览」选择文件后转录",
+                  size=11, color=TEXT2).pack(anchor="w")
 
         # 进度条
         self._prog_canvas = tk.Canvas(parent, height=3, bg=BG, highlightthickness=0)
@@ -426,75 +412,6 @@ class App(tk.Tk):
             self._set_status("文件不存在", "error")
             return
         self._run_in_thread(lambda: self._do_transcribe(path))
-
-    # ── 录音 ──────────────────────────────────────────────────
-
-    def _toggle_record(self) -> None:
-        if not self._recording:
-            self._start_record()
-        else:
-            self._stop_record()
-
-    def _start_record(self) -> None:
-        self._recording = True
-        self._rec_btn.config(text="■  停止录音")
-        self._rec_btn.set_bg("#636366", "#7C7C80")
-        self._record_start = time.time()
-        self._record_thread = threading.Thread(target=self._do_record, daemon=True)
-        self._record_thread.start()
-        self._update_rec_label()
-
-    def _stop_record(self) -> None:
-        self._recording = False
-
-    def _update_rec_label(self) -> None:
-        if self._recording:
-            elapsed = int(time.time() - self._record_start)
-            m, s = divmod(elapsed, 60)
-            self._rec_label.config(text=f"录音中  {m:02d}:{s:02d}", fg=DANGER)
-            self.after(500, self._update_rec_label)
-
-    def _do_record(self) -> None:
-        import sounddevice as sd
-        import numpy as np
-
-        SAMPLE_RATE = 16000
-        self._set_status("录音中...", "error")
-        chunks: list = []
-
-        def callback(indata, frames, t, status) -> None:
-            chunks.append(indata.copy())
-
-        with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-                            blocksize=SAMPLE_RATE // 2, callback=callback):
-            while self._recording:
-                time.sleep(0.1)
-
-        self._recording = False
-        self.after(0, lambda: self._rec_btn.config(text="● 开始录音"))
-        self.after(0, lambda: self._rec_btn.set_bg(DANGER, "#FF6961"))
-        self.after(0, lambda: self._rec_label.config(text=""))
-
-        if not chunks:
-            self._set_status("录音失败", "error")
-            return
-
-        audio = np.concatenate(chunks, axis=0).flatten()
-        self._set_status("录音完成，转录中...", "info")
-
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp_path = f.name
-        with wave.open(tmp_path, "w") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(SAMPLE_RATE)
-            wf.writeframes((audio * 32767).astype(np.int16).tobytes())
-
-        try:
-            self.after(0, self._start_progress)
-            self._do_transcribe(tmp_path)
-        finally:
-            os.unlink(tmp_path)
 
     # ── 转录 ──────────────────────────────────────────────────
 
