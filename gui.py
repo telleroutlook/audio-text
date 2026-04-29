@@ -111,10 +111,17 @@ class App(tk.Tk):
         file_frame.pack(fill="x", padx=12, pady=4)
 
         self._file_var = tk.StringVar(value="")
-        ttk.Entry(file_frame, textvariable=self._file_var, width=52).pack(
+        ttk.Entry(file_frame, textvariable=self._file_var, width=44).pack(
             side="left", fill="x", expand=True)
         ttk.Button(file_frame, text="选择文件", command=self._pick_file).pack(side="left", padx=(6, 0))
+        ttk.Button(file_frame, text="Voice Memos", command=self._open_voice_memos).pack(side="left", padx=(6, 0))
         ttk.Button(file_frame, text="开始转录", command=self._start_file_transcribe).pack(side="left", padx=(6, 0))
+
+        # Voice Memos 使用提示
+        hint = ttk.Label(self,
+            text="提示：Voice Memos 录音请先在备忘录 App 中长按 → 共享 → 存储到「下载」，再点「选择文件」",
+            foreground="gray", font=("PingFang SC", 11))
+        hint.pack(anchor="w", padx=14, pady=(0, 2))
 
         # ── 录音区 ──────────────────────────────────
         rec_frame = ttk.LabelFrame(self, text="麦克风录音", padding=10)
@@ -186,8 +193,7 @@ class App(tk.Tk):
             return None
 
     def _pick_file(self) -> None:
-        voice_memos = Path.home() / "Library/Group Containers/group.com.apple.VoiceMemos.shared/Media/Recordings"
-        init_dir = str(voice_memos) if voice_memos.exists() else str(Path.home())
+        init_dir = str(Path.home() / "Downloads")
         path = filedialog.askopenfilename(
             title="选择音频/视频文件",
             initialdir=init_dir,
@@ -198,6 +204,10 @@ class App(tk.Tk):
         )
         if path:
             self._file_var.set(path)
+
+    def _open_voice_memos(self) -> None:
+        import subprocess
+        subprocess.Popen(["open", "-a", "Voice Memos"])
 
     def _start_file_transcribe(self) -> None:
         path = self._file_var.get().strip()
