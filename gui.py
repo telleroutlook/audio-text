@@ -206,8 +206,7 @@ class App(tk.Tk):
             self._file_var.set(path)
 
     def _open_voice_memos(self) -> None:
-        import subprocess
-        subprocess.Popen(["open", "-a", "Voice Memos"])
+        threading.Thread(target=lambda: os.system("open -a 'Voice Memos'"), daemon=True).start()
 
     def _start_file_transcribe(self) -> None:
         path = self._file_var.get().strip()
