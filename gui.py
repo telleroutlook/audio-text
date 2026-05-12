@@ -534,4 +534,23 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     app = App()
+    # macOS .app bundle: Python starts as background process, window shows but
+    # won't accept clicks. After Tk initializes Cocoa, promote to foreground app.
+    try:
+        import ctypes, ctypes.util
+        objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
+        objc.objc_getClass.restype = ctypes.c_void_p
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.objc_msgSend.restype = ctypes.c_void_p
+        objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        NSApp = objc.objc_msgSend(objc.objc_getClass(b"NSApplication"),
+                                  objc.sel_registerName(b"sharedApplication"))
+        objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int64]
+        objc.objc_msgSend(NSApp, objc.sel_registerName(b"setActivationPolicy:"), 0)
+        objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
+        objc.objc_msgSend(NSApp, objc.sel_registerName(b"activateIgnoringOtherApps:"), True)
+    except Exception:
+        pass
+    app.lift()
+    app.focus_force()
     app.mainloop()
